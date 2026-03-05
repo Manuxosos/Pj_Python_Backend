@@ -1,0 +1,39 @@
+# =====================================================
+# DEPENDENCIAS DEL PROYECTO TaskFlow API
+# =====================================================
+# Para instalar todo: pip install -r requirements.txt
+
+# Framework web principal (como Spring Boot en Java)
+fastapi==0.109.2
+
+# Servidor ASGI (como Tomcat en Java)
+uvicorn[standard]==0.27.1
+
+# ORM para base de datos (como JPA/Hibernate en Java)
+sqlalchemy==2.0.27
+
+# Migraciones de base de datos (como Flyway en Java)
+alembic==1.13.1
+
+# JWT para autenticación (como jjwt en Java)
+python-jose[cryptography]==3.3.0
+
+# Hashing de contraseñas (como BCrypt en Java)
+passlib[bcrypt]==1.7.4
+
+# Para recibir formularios en endpoints de login
+python-multipart==0.0.6
+
+# Validación y serialización de datos (como Bean Validation + Jackson en Java)
+pydantic==2.6.1
+pydantic-settings==2.1.0
+
+# Variables de entorno
+python-dotenv==1.0.0
+
+# Cliente HTTP para tests (como MockMvc en Java)
+httpx==0.26.0
+
+# Tests
+pytest==7.4.4
+pytest-asyncio==0.23.5
