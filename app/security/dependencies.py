@@ -96,14 +96,6 @@ def require_admin(usuario: Usuario = Depends(get_usuario_actual)) -> Usuario:
     return usuario
 
 
-def require_manager_or_admin(usuario: Usuario = Depends(get_usuario_actual)) -> Usuario:
-    """
-    Dependencia que exige rol MANAGER o ADMIN.
-    Equivale a @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')") en Spring.
-    """
-    if usuario.rol not in [RolUsuario.ADMIN, RolUsuario.MANAGER]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Se requieren permisos de manager o administrador"
-        )
+def require_cliente(usuario: Usuario = Depends(get_usuario_actual)) -> Usuario:
+    """Cualquier usuario autenticado (ADMIN o CLIENTE)."""
     return usuario

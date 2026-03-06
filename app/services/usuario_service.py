@@ -1,44 +1,28 @@
 """
 SERVICIO DE USUARIOS
 ======================
-Lógica de negocio para gestionar usuarios del sistema.
-Equivale a UsuarioService.java en Spring Boot.
-
-PATRÓN SERVICE:
-  El router (controller) recibe la petición HTTP.
-  El service contiene la lógica de negocio.
-  El service usa SQLAlchemy (ORM) para acceder a la BD.
-
-  Router → Service → SQLAlchemy ORM → Base de datos
+Gestiona el CRUD de usuarios y el registro público.
+Router → Service → SQLAlchemy ORM → Base de datos
 """
 
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
-from app.models.usuario import Usuario
-from app.schemas.usuario import UsuarioCreate, UsuarioUpdate
+from app.models.usuario import Usuario, RolUsuario
+from app.models.carrito import Carrito
+from app.schemas.usuario import UsuarioRegistro, UsuarioCreate, UsuarioUpdate
 from app.services.auth_service import hash_password
 
 
 def get_all(db: Session) -> list[Usuario]:
-    """
-    Obtiene todos los usuarios activos.
-    Equivale a usuarioRepository.findAll() en Spring.
-    """
+    """Lista todos los usuarios activos."""
     return db.query(Usuario).filter(Usuario.activo == True).all()
 
 
 def get_by_id(db: Session, usuario_id: int) -> Usuario:
-    """
-    Busca un usuario por su ID.
-
-    Raises:
-        404 NOT_FOUND → Si no existe o está inactivo
-    """
+    """Busca un usuario por ID. Lanza 404 si no existe."""
     usuario = db.query(Usuario).filter(
-        Usuario.id == usuario_id,
-        Usuario.activo == True
+        Usuario.id == usuario_id, Usuario.activo == True
     ).first()
-
     if not usuario:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -48,67 +32,81 @@ def get_by_id(db: Session, usuario_id: int) -> Usuario:
 
 
 def get_by_email(db: Session, email: str) -> Usuario | None:
-    """Busca un usuario por email (retorna None si no existe)."""
     return db.query(Usuario).filter(Usuario.email == email).first()
 
 
-def create(db: Session, usuario_data: UsuarioCreate) -> Usuario:
+def registrar(db: Session, datos: UsuarioRegistro) -> Usuario:
     """
-    Crea un nuevo usuario.
+    Registro público: crea un nuevo CLIENTE.
+    También crea automáticamente un carrito vacío para el usuario.
 
-    Pasos:
-    1. Verificar que el email no esté en uso
-    2. Hashear la contraseña
-    3. Crear el objeto Usuario
-    4. Guardar en la BD
-    5. Retornar el usuario creado
-
-    Raises:
-        400 BAD_REQUEST → Si el email ya existe
+    Este endpoint es PÚBLICO (sin autenticación).
+    Es el equivalente al botón "Crear cuenta" del frontend.
     """
-    # Verificar email único
-    if get_by_email(db, usuario_data.email):
+    if get_by_email(db, datos.email):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"El email '{usuario_data.email}' ya está registrado"
+            detail=f"El email '{datos.email}' ya está registrado"
         )
 
-    # Crear el objeto de modelo (como new Usuario() en Java)
     nuevo_usuario = Usuario(
-        email=usuario_data.email,
-        nombre=usuario_data.nombre,
-        hashed_password=hash_password(usuario_data.password),  # Hashear contraseña
-        rol=usuario_data.rol,
+        email=datos.email,
+        nombre=datos.nombre,
+        apellido=datos.apellido,
+        hashed_password=hash_password(datos.password),
+        rol=RolUsuario.CLIENTE,  # Registro público → siempre CLIENTE
         activo=True
     )
+    db.add(nuevo_usuario)
+    db.flush()  # Necesitamos el ID antes del commit para el carrito
 
-    # Añadir a la sesión y confirmar transacción
-    db.add(nuevo_usuario)       # INSERT INTO usuarios VALUES (...)
-    db.commit()                 # COMMIT (confirmar en BD)
-    db.refresh(nuevo_usuario)   # Recargar desde BD (para obtener el ID generado)
+    # Crear carrito vacío automáticamente al registrarse
+    carrito = Carrito(usuario_id=nuevo_usuario.id)
+    db.add(carrito)
 
+    db.commit()
+    db.refresh(nuevo_usuario)
     return nuevo_usuario
 
 
-def update(db: Session, usuario_id: int, update_data: UsuarioUpdate) -> Usuario:
+def create(db: Session, datos: UsuarioCreate) -> Usuario:
     """
-    Actualiza un usuario existente.
-    Solo actualiza los campos que se envíen (PATCH semántico).
+    Creación por admin: puede asignar cualquier rol.
+    También crea el carrito automáticamente.
+    """
+    if get_by_email(db, datos.email):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"El email '{datos.email}' ya está registrado"
+        )
 
-    Raises:
-        404 NOT_FOUND → Si el usuario no existe
-    """
+    nuevo_usuario = Usuario(
+        email=datos.email,
+        nombre=datos.nombre,
+        apellido=datos.apellido,
+        hashed_password=hash_password(datos.password),
+        rol=datos.rol,
+        activo=True
+    )
+    db.add(nuevo_usuario)
+    db.flush()
+
+    carrito = Carrito(usuario_id=nuevo_usuario.id)
+    db.add(carrito)
+
+    db.commit()
+    db.refresh(nuevo_usuario)
+    return nuevo_usuario
+
+
+def update(db: Session, usuario_id: int, datos: UsuarioUpdate) -> Usuario:
+    """Actualiza perfil. Solo campos enviados (exclude_none=True)."""
     usuario = get_by_id(db, usuario_id)
+    update_dict = datos.model_dump(exclude_none=True)
 
-    # Obtener solo los campos que no son None
-    # model_dump(exclude_none=True) → {"nombre": "Juan"} (sin campos vacíos)
-    update_dict = update_data.model_dump(exclude_none=True)
-
-    # Si se actualiza la contraseña, hashearla
     if "password" in update_dict:
         update_dict["hashed_password"] = hash_password(update_dict.pop("password"))
 
-    # Actualizar solo los campos enviados
     for field, value in update_dict.items():
         setattr(usuario, field, value)
 
@@ -118,15 +116,7 @@ def update(db: Session, usuario_id: int, update_data: UsuarioUpdate) -> Usuario:
 
 
 def delete(db: Session, usuario_id: int) -> None:
-    """
-    Desactiva un usuario (soft delete).
-    No se borra físicamente de la BD para mantener el historial.
-
-    Equivale a soft delete en Spring (usuario.activo = false).
-
-    Raises:
-        404 NOT_FOUND → Si el usuario no existe
-    """
+    """Soft delete: desactiva el usuario sin borrar su historial de pedidos."""
     usuario = get_by_id(db, usuario_id)
     usuario.activo = False
     db.commit()

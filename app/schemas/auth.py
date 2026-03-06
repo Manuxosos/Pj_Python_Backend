@@ -29,7 +29,7 @@ class LoginRequest(BaseModel):
     """
     email: EmailStr = Field(
         ...,  # ... significa REQUERIDO (equivale a @NotNull en Java)
-        example="admin@taskflow.com",
+        example="admin@shopflow.com",
         description="Email del usuario registrado"
     )
     password: str = Field(
@@ -50,7 +50,7 @@ class TokenResponse(BaseModel):
     expires_in: int = Field(description="Segundos hasta que expire el token")
     usuario_id: int = Field(description="ID del usuario autenticado")
     nombre: str = Field(description="Nombre del usuario autenticado")
-    rol: str = Field(description="Rol del usuario (ADMIN, MANAGER, DESARROLLADOR)")
+    rol: str = Field(description="Rol del usuario (ADMIN, CLIENTE)")
 
 
 class TokenData(BaseModel):

@@ -23,13 +23,13 @@ class Settings(BaseSettings):
     """
 
     # --- Información de la app ---
-    app_name: str = "TaskFlow API"
+    app_name: str = "ShopFlow API"
     app_version: str = "1.0.0"
     debug: bool = True
 
     # --- Base de datos ---
     # SQLite para desarrollo, PostgreSQL para producción
-    database_url: str = "sqlite:///./taskflow.db"
+    database_url: str = "sqlite:///./shopflow.db"
 
     # --- JWT (JSON Web Tokens) ---
     # secret_key: clave para firmar los tokens (como un sello digital)

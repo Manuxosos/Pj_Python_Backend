@@ -1,18 +1,13 @@
 """
 MODELO DE USUARIO
 ==================
-Equivale a la clase @Entity Usuario de JPA en Java.
+En una tienda online hay dos tipos de usuarios:
+  - ADMIN: gestiona el catálogo, procesa pedidos, ve estadísticas
+  - CLIENTE: navega el catálogo, tiene carrito, hace pedidos
 
-SQLAlchemy mapea esta clase Python a una tabla en la base de datos.
-Cada atributo de clase = una columna en la tabla.
-
-COMPARACIÓN CON JAVA/JPA:
-  @Entity               → heredar de Base
-  @Table(name="...")    → __tablename__
-  @Id @GeneratedValue   → Column(primary_key=True)
-  @Column(...)          → Column(...)
-  @ManyToOne            → relationship(...)
-  @Enumerated           → SQLAlchemy Enum type
+CONCEPTO CLAVE - Normalización de datos:
+  Un usuario TIENE un carrito (1:1) y muchos pedidos (1:N).
+  Cada tabla tiene una sola responsabilidad.
 """
 
 import enum
@@ -22,68 +17,29 @@ from sqlalchemy.orm import relationship
 from app.config.database import Base
 
 
-# ==============================================================
-# ENUMERACIONES - Valores posibles para campos específicos
-# ==============================================================
 class RolUsuario(str, enum.Enum):
-    """
-    Roles del sistema. 'str' permite comparar directamente con strings.
-    Equivale al @Enumerated(EnumType.STRING) de JPA.
-    """
-    ADMIN = "ADMIN"           # Administrador del sistema
-    MANAGER = "MANAGER"       # Jefe de proyecto
-    DESARROLLADOR = "DESARROLLADOR"  # Desarrollador
+    ADMIN = "ADMIN"
+    CLIENTE = "CLIENTE"
 
 
-# ==============================================================
-# MODELO USUARIO
-# ==============================================================
 class Usuario(Base):
-    """
-    Tabla 'usuarios' en la base de datos.
+    __tablename__ = "usuarios"
 
-    Columnas:
-        id          → clave primaria autoincremental
-        email       → único, es el nombre de usuario para login
-        nombre      → nombre completo
-        hashed_password → contraseña hasheada (NUNCA texto plano)
-        rol         → rol del usuario (ADMIN, MANAGER, DESARROLLADOR)
-        activo      → si la cuenta está activa (soft delete)
-        created_at  → fecha de creación
-        updated_at  → fecha de última modificación
-    """
-
-    __tablename__ = "usuarios"  # Nombre de la tabla en la BD
-
-    # --- Columnas ---
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     email = Column(String(255), unique=True, index=True, nullable=False)
     nombre = Column(String(100), nullable=False)
+    apellido = Column(String(100), nullable=False)
     hashed_password = Column(String(255), nullable=False)
-    rol = Column(SAEnum(RolUsuario), default=RolUsuario.DESARROLLADOR, nullable=False)
+    rol = Column(SAEnum(RolUsuario), default=RolUsuario.CLIENTE, nullable=False)
     activo = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    # --- Relaciones ---
-    # Un usuario puede ser dueño de muchos proyectos
-    # back_populates conecta la relación en ambos lados
-    proyectos_creados = relationship(
-        "Proyecto",
-        foreign_keys="Proyecto.owner_id",
-        back_populates="owner"
-    )
+    # Relación 1:1 → un usuario tiene UN solo carrito
+    # uselist=False → devuelve objeto único en vez de lista
+    carrito = relationship("Carrito", back_populates="usuario", uselist=False)
 
-    # Un usuario puede tener muchas tareas asignadas
-    tareas_asignadas = relationship(
-        "Tarea",
-        foreign_keys="Tarea.asignado_a_id",
-        back_populates="asignado_a"
-    )
-
-    # Un usuario puede crear muchos comentarios
-    comentarios = relationship("Comentario", back_populates="autor")
+    # Relación 1:N → un usuario puede tener muchos pedidos
+    pedidos = relationship("Pedido", back_populates="usuario")
 
     def __repr__(self):
-        """Representación legible del objeto (como toString() en Java)"""
         return f"<Usuario id={self.id} email='{self.email}' rol={self.rol}>"

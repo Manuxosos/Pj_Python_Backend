@@ -1,40 +1,21 @@
 """
 ROUTER DE AUTENTICACIÓN
 =========================
-Equivale a AuthController.java en Spring Boot.
-
-En FastAPI, los "routers" son los "controllers" de Java/Spring.
-Definen los endpoints (URLs) y métodos HTTP.
-
-COMPARACIÓN CON SPRING:
-  @RestController    → APIRouter()
-  @RequestMapping    → prefix="/api/auth"
-  @PostMapping       → @router.post(...)
-  @RequestBody       → Pydantic schema en parámetro
-
-ENDPOINTS:
-  POST /api/auth/login  → Obtener JWT
-  GET  /api/auth/me     → Ver usuario actual
-
-DOCUMENTACIÓN AUTOMÁTICA:
-  FastAPI genera Swagger/OpenAPI automáticamente.
-  No necesitas Springdoc ni ninguna librería extra.
+POST /api/auth/login     → Obtener JWT
+POST /api/auth/registro  → Registrar nueva cuenta (público)
+GET  /api/auth/me        → Ver perfil del usuario autenticado
 """
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 from app.config.database import get_db
 from app.schemas.auth import LoginRequest, TokenResponse
-from app.schemas.usuario import UsuarioResponse
+from app.schemas.usuario import UsuarioRegistro, UsuarioResponse
 from app.security.dependencies import get_usuario_actual
 from app.models.usuario import Usuario
-from app.services import auth_service
+from app.services import auth_service, usuario_service
 
-# APIRouter = @RestController + @RequestMapping en Spring
-router = APIRouter(
-    prefix="/api/auth",    # Prefijo común para todos los endpoints
-    tags=["🔐 Autenticación"],  # Agrupa los endpoints en Swagger UI
-)
+router = APIRouter(prefix="/api/auth", tags=["🔐 Autenticación"])
 
 
 @router.post(
@@ -42,40 +23,40 @@ router = APIRouter(
     response_model=TokenResponse,
     summary="Iniciar sesión",
     description="""
-    Autentica al usuario con email y contraseña.
-    Devuelve un JWT Bearer Token para usar en las demás peticiones.
+Obtener JWT token. Úsalo en el botón **Authorize** 🔒 para acceder a los endpoints protegidos.
 
-    **Usuarios de prueba:**
-    - admin@taskflow.com / Admin1234 (ADMIN)
-    - laura@taskflow.com / Manager1234 (MANAGER)
-    - carlos@taskflow.com / Dev1234 (DESARROLLADOR)
+**Usuarios de prueba:**
+| Email | Password | Rol |
+|-------|----------|-----|
+| admin@shopflow.com | Admin1234 | ADMIN |
+| cliente1@email.com | Cliente1234 | CLIENTE |
+| cliente2@email.com | Cliente1234 | CLIENTE |
     """
 )
-def login(
-    login_data: LoginRequest,   # Pydantic valida automáticamente el body JSON
-    db: Session = Depends(get_db)  # Inyección de dependencia (como @Autowired)
-):
-    """
-    Endpoint de login. Devuelve el JWT si las credenciales son correctas.
-
-    Cómo usar el token recibido:
-        Authorization: Bearer <access_token>
-    """
+def login(login_data: LoginRequest, db: Session = Depends(get_db)):
     return auth_service.login(db, login_data)
+
+
+@router.post(
+    "/registro",
+    response_model=UsuarioResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Crear cuenta",
+    description="Registro público. El rol siempre será CLIENTE."
+)
+def registrar(datos: UsuarioRegistro, db: Session = Depends(get_db)):
+    """
+    Endpoint PÚBLICO (sin JWT).
+    Es el botón "Crear cuenta" del frontend de la tienda.
+    """
+    return usuario_service.registrar(db, datos)
 
 
 @router.get(
     "/me",
     response_model=UsuarioResponse,
-    summary="Ver mi perfil",
-    description="Devuelve los datos del usuario actualmente autenticado."
+    summary="Mi perfil"
 )
-def get_mi_perfil(
-    # Depends(get_usuario_actual) = @PreAuthorize("isAuthenticated()") en Spring
-    usuario_actual: Usuario = Depends(get_usuario_actual)
-):
-    """
-    Endpoint protegido: requiere JWT válido.
-    FastAPI verifica el token automáticamente con get_usuario_actual.
-    """
+def get_mi_perfil(usuario_actual: Usuario = Depends(get_usuario_actual)):
+    """Devuelve los datos del usuario autenticado con el JWT."""
     return usuario_actual

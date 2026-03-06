@@ -1,266 +1,283 @@
 """
 INICIALIZADOR DE DATOS
 ========================
-Equivale al DataInitializer.java de Spring Boot (@Component + CommandLineRunner).
-
-Se ejecuta al arrancar la aplicación y crea datos de prueba
-si la base de datos está vacía.
+Crea datos de prueba al iniciar la aplicación por primera vez.
 
 DATOS CREADOS:
   Usuarios:
-    - admin@taskflow.com      / Admin1234     (ADMIN)
-    - laura@taskflow.com      / Manager1234   (MANAGER)
-    - roberto@taskflow.com    / Manager1234   (MANAGER)
-    - carlos@taskflow.com     / Dev1234       (DESARROLLADOR)
-    - ana@taskflow.com        / Dev1234       (DESARROLLADOR)
-    - miguel@taskflow.com     / Dev1234       (DESARROLLADOR)
+    - admin@shopflow.com    / Admin1234    (ADMIN)
+    - cliente1@email.com   / Cliente1234  (CLIENTE)
+    - cliente2@email.com   / Cliente1234  (CLIENTE)
 
-  Proyectos:
-    - Portal de Clientes (ACTIVO)
-    - App Móvil Interna (EN_PAUSA)
-    - Microservicios Backend (PLANIFICACION)
+  Categorías: Electrónica, Ropa, Hogar, Deportes, Libros
 
-  Tareas con varios estados y prioridades
-  Comentarios en las tareas
+  Productos (varios por categoría, algunos con descuento)
+
+  Carrito de cada cliente con algunos productos añadidos
+
+  Un pedido de ejemplo
 """
 
 from datetime import datetime, timezone, timedelta
 from sqlalchemy.orm import Session
 from app.models.usuario import Usuario, RolUsuario
-from app.models.proyecto import Proyecto, EstadoProyecto
-from app.models.tarea import Tarea, EstadoTarea, PrioridadTarea
-from app.models.comentario import Comentario
+from app.models.categoria import Categoria
+from app.models.producto import Producto
+from app.models.carrito import Carrito, CarritoItem
+from app.models.pedido import Pedido, PedidoItem, EstadoPedido
 from app.services.auth_service import hash_password
 
 
 def inicializar_datos(db: Session) -> None:
-    """
-    Crea datos de prueba si no existen usuarios en la BD.
-    Es idempotente: si ya hay datos, no hace nada.
-    """
-
-    # Si ya hay usuarios, no hacer nada
+    """Idempotente: si ya hay datos, no hace nada."""
     if db.query(Usuario).count() > 0:
-        print("✅ Base de datos ya contiene datos. Saltando inicialización.")
+        print("✅ Base de datos ya contiene datos.")
         return
 
     print("🚀 Inicializando base de datos con datos de prueba...")
 
     # ==============================================================
-    # 1. CREAR USUARIOS
+    # 1. USUARIOS
     # ==============================================================
     admin = Usuario(
-        email="admin@taskflow.com",
-        nombre="Administrador Sistema",
+        email="admin@shopflow.com",
+        nombre="Admin",
+        apellido="ShopFlow",
         hashed_password=hash_password("Admin1234"),
         rol=RolUsuario.ADMIN
     )
-
-    laura = Usuario(
-        email="laura@taskflow.com",
-        nombre="Laura Martínez",
-        hashed_password=hash_password("Manager1234"),
-        rol=RolUsuario.MANAGER
+    cliente1 = Usuario(
+        email="cliente1@email.com",
+        nombre="María",
+        apellido="García",
+        hashed_password=hash_password("Cliente1234"),
+        rol=RolUsuario.CLIENTE
     )
-
-    roberto = Usuario(
-        email="roberto@taskflow.com",
-        nombre="Roberto Sánchez",
-        hashed_password=hash_password("Manager1234"),
-        rol=RolUsuario.MANAGER
+    cliente2 = Usuario(
+        email="cliente2@email.com",
+        nombre="Carlos",
+        apellido="López",
+        hashed_password=hash_password("Cliente1234"),
+        rol=RolUsuario.CLIENTE
     )
+    db.add_all([admin, cliente1, cliente2])
+    db.flush()
 
-    carlos = Usuario(
-        email="carlos@taskflow.com",
-        nombre="Carlos López",
-        hashed_password=hash_password("Dev1234"),
-        rol=RolUsuario.DESARROLLADOR
-    )
-
-    ana = Usuario(
-        email="ana@taskflow.com",
-        nombre="Ana García",
-        hashed_password=hash_password("Dev1234"),
-        rol=RolUsuario.DESARROLLADOR
-    )
-
-    miguel = Usuario(
-        email="miguel@taskflow.com",
-        nombre="Miguel Torres",
-        hashed_password=hash_password("Dev1234"),
-        rol=RolUsuario.DESARROLLADOR
-    )
-
-    db.add_all([admin, laura, roberto, carlos, ana, miguel])
-    db.commit()
+    # Crear carritos vacíos para los clientes
+    carrito1 = Carrito(usuario_id=cliente1.id)
+    carrito2 = Carrito(usuario_id=cliente2.id)
+    db.add_all([carrito1, carrito2])
 
     # ==============================================================
-    # 2. CREAR PROYECTOS
+    # 2. CATEGORÍAS
     # ==============================================================
-    ahora = datetime.now(timezone.utc)
-
-    proyecto1 = Proyecto(
-        nombre="Portal de Clientes B2B",
-        descripcion="Sistema web completo para gestión de clientes empresariales. "
-                    "Incluye autenticación, dashboard, reportes y API REST.",
-        estado=EstadoProyecto.ACTIVO,
-        fecha_inicio=ahora - timedelta(days=30),
-        fecha_fin_estimada=ahora + timedelta(days=90),
-        owner_id=laura.id
-    )
-
-    proyecto2 = Proyecto(
-        nombre="App Móvil para Empleados",
-        descripcion="Aplicación móvil (iOS y Android) para que los empleados "
-                    "gestionen sus tareas, vacaciones y nóminas.",
-        estado=EstadoProyecto.EN_PAUSA,
-        fecha_inicio=ahora - timedelta(days=60),
-        fecha_fin_estimada=ahora + timedelta(days=120),
-        owner_id=roberto.id
-    )
-
-    proyecto3 = Proyecto(
-        nombre="Migración a Microservicios",
-        descripcion="Refactorización del monolito existente a arquitectura de "
-                    "microservicios con Docker y Kubernetes.",
-        estado=EstadoProyecto.PLANIFICACION,
-        fecha_inicio=ahora + timedelta(days=15),
-        fecha_fin_estimada=ahora + timedelta(days=180),
-        owner_id=laura.id
-    )
-
-    db.add_all([proyecto1, proyecto2, proyecto3])
-    db.commit()
+    electronica = Categoria(nombre="Electrónica", descripcion="Tecnología y dispositivos", icono="laptop")
+    ropa = Categoria(nombre="Ropa", descripcion="Moda y complementos", icono="shirt")
+    hogar = Categoria(nombre="Hogar", descripcion="Para tu casa", icono="home")
+    deportes = Categoria(nombre="Deportes", descripcion="Equipación y material deportivo", icono="dumbbell")
+    libros = Categoria(nombre="Libros", descripcion="Libros y ebooks", icono="book")
+    db.add_all([electronica, ropa, hogar, deportes, libros])
+    db.flush()
 
     # ==============================================================
-    # 3. CREAR TAREAS
+    # 3. PRODUCTOS
     # ==============================================================
-    tareas = [
-        # --- Proyecto 1: Portal de Clientes ---
-        Tarea(
-            titulo="Diseño del sistema de autenticación JWT",
-            descripcion="Implementar login con JWT, refresh tokens y manejo de sesiones.",
-            estado=EstadoTarea.COMPLETADA,
-            prioridad=PrioridadTarea.CRITICA,
-            proyecto_id=proyecto1.id,
-            asignado_a_id=carlos.id,
-            creado_por_id=laura.id,
-            fecha_limite=ahora - timedelta(days=10),
-            fecha_completada=ahora - timedelta(days=12)
+    productos = [
+        # --- Electrónica ---
+        Producto(
+            nombre="MacBook Pro M3 14\"",
+            descripcion="El portátil más potente de Apple. Chip M3, 18GB RAM, 512GB SSD, batería de 18h.",
+            precio=2199.99,
+            stock=15,
+            imagen_url="https://store.storeimages.cdn-apple.com/macbook-pro.jpg",
+            categoria_id=electronica.id,
+            destacado=True
         ),
-        Tarea(
-            titulo="Implementar dashboard de métricas",
-            descripcion="Panel con gráficos de ventas, usuarios activos y KPIs principales.",
-            estado=EstadoTarea.EN_PROGRESO,
-            prioridad=PrioridadTarea.ALTA,
-            proyecto_id=proyecto1.id,
-            asignado_a_id=ana.id,
-            creado_por_id=laura.id,
-            fecha_limite=ahora + timedelta(days=7)
+        Producto(
+            nombre="iPhone 15 Pro 256GB",
+            descripcion="Titanio. Chip A17 Pro. Sistema de cámaras Pro de 48MP. USB-C.",
+            precio=1229.00,
+            precio_descuento=1099.00,  # En oferta
+            stock=30,
+            imagen_url="https://store.storeimages.cdn-apple.com/iphone15pro.jpg",
+            categoria_id=electronica.id,
+            destacado=True
         ),
-        Tarea(
-            titulo="Integración con CRM externo",
-            descripcion="Conectar con Salesforce API para sincronizar datos de clientes.",
-            estado=EstadoTarea.PENDIENTE,
-            prioridad=PrioridadTarea.MEDIA,
-            proyecto_id=proyecto1.id,
-            asignado_a_id=miguel.id,
-            creado_por_id=laura.id,
-            fecha_limite=ahora + timedelta(days=21)
+        Producto(
+            nombre='Samsung Galaxy S24 Ultra 512GB',
+            descripcion="6.8\" AMOLED, 200MP, S Pen integrado, batería 5000mAh.",
+            precio=1399.00,
+            stock=20,
+            imagen_url="https://images.samsung.com/galaxy-s24-ultra.jpg",
+            categoria_id=electronica.id
         ),
-        Tarea(
-            titulo="Pruebas de rendimiento y carga",
-            descripcion="Tests con Locust para validar que el sistema soporta 1000 usuarios simultáneos.",
-            estado=EstadoTarea.PENDIENTE,
-            prioridad=PrioridadTarea.ALTA,
-            proyecto_id=proyecto1.id,
-            asignado_a_id=carlos.id,
-            creado_por_id=laura.id,
-            fecha_limite=ahora + timedelta(days=45)
+        Producto(
+            nombre="AirPods Pro 2ª generación",
+            descripcion="Cancelación activa de ruido. Audio espacial personalizado. Chip H2.",
+            precio=279.00,
+            precio_descuento=249.00,
+            stock=50,
+            imagen_url="https://store.storeimages.cdn-apple.com/airpods-pro.jpg",
+            categoria_id=electronica.id,
+            destacado=True
         ),
-
-        # --- Proyecto 2: App Móvil ---
-        Tarea(
-            titulo="Definir wireframes de la aplicación",
-            descripcion="Crear prototipos de las pantallas principales en Figma.",
-            estado=EstadoTarea.COMPLETADA,
-            prioridad=PrioridadTarea.ALTA,
-            proyecto_id=proyecto2.id,
-            asignado_a_id=ana.id,
-            creado_por_id=roberto.id,
-            fecha_completada=ahora - timedelta(days=20)
+        Producto(
+            nombre="Sony WH-1000XM5",
+            descripcion="Los mejores auriculares con cancelación de ruido del mercado. 30h batería.",
+            precio=349.99,
+            stock=25,
+            categoria_id=electronica.id
         ),
-        Tarea(
-            titulo="Setup del proyecto React Native",
-            descripcion="Configurar el proyecto con TypeScript, navegación y estado global.",
-            estado=EstadoTarea.EN_REVISION,
-            prioridad=PrioridadTarea.MEDIA,
-            proyecto_id=proyecto2.id,
-            asignado_a_id=miguel.id,
-            creado_por_id=roberto.id
+        Producto(
+            nombre='Monitor LG UltraWide 34"',
+            descripcion='34" Curved WQHD 3440x1440, 144Hz, HDR10, 1ms, USB-C 90W.',
+            precio=599.99,
+            precio_descuento=499.99,
+            stock=10,
+            categoria_id=electronica.id
         ),
 
-        # --- Proyecto 3: Microservicios ---
-        Tarea(
-            titulo="Análisis del monolito actual",
-            descripcion="Mapear todos los módulos del sistema y sus dependencias.",
-            estado=EstadoTarea.PENDIENTE,
-            prioridad=PrioridadTarea.ALTA,
-            proyecto_id=proyecto3.id,
-            asignado_a_id=carlos.id,
-            creado_por_id=laura.id
+        # --- Ropa ---
+        Producto(
+            nombre="Zapatillas Nike Air Max 90",
+            descripcion="Icónicas zapatillas con amortiguación Air. Tallas 36-47.",
+            precio=129.99,
+            precio_descuento=99.99,
+            stock=100,
+            categoria_id=ropa.id,
+            destacado=True
+        ),
+        Producto(
+            nombre="Camiseta Levi's Original",
+            descripcion="100% algodón. Corte recto. Disponible en blanco, negro y azul marino.",
+            precio=29.99,
+            stock=200,
+            categoria_id=ropa.id
+        ),
+        Producto(
+            nombre="Vaqueros Levi's 501 Original",
+            descripcion="El vaquero clásico desde 1873. Corte recto. Tallas 28-40.",
+            precio=99.99,
+            precio_descuento=79.99,
+            stock=80,
+            categoria_id=ropa.id
+        ),
+
+        # --- Hogar ---
+        Producto(
+            nombre="Robot Aspirador Roomba j9+",
+            descripcion="Aspirado y fregado. Vaciado automático. Compatible con Alexa y Google.",
+            precio=799.99,
+            stock=12,
+            categoria_id=hogar.id,
+            destacado=True
+        ),
+        Producto(
+            nombre="Cafetera Nespresso Vertuo",
+            descripcion="Café barista en casa. Compatible con cápsulas Vertuo. 1500W.",
+            precio=149.99,
+            precio_descuento=119.99,
+            stock=35,
+            categoria_id=hogar.id
+        ),
+
+        # --- Deportes ---
+        Producto(
+            nombre="Bicicleta de montaña Trek Marlin 5",
+            descripcion="Cuadro aluminio Alpha Gold. Horquilla SR Suntour XCT. 21 velocidades.",
+            precio=649.99,
+            stock=8,
+            categoria_id=deportes.id
+        ),
+        Producto(
+            nombre="Esterilla de Yoga Manduka PRO",
+            descripcion="La esterilla más usada por instructores de yoga. 6mm. 100% libre de PVC.",
+            precio=129.99,
+            precio_descuento=99.99,
+            stock=40,
+            categoria_id=deportes.id
+        ),
+
+        # --- Libros ---
+        Producto(
+            nombre="Clean Code - Robert C. Martin",
+            descripcion="El manual definitivo para escribir código limpio y mantenible.",
+            precio=39.99,
+            stock=60,
+            categoria_id=libros.id,
+            destacado=True
+        ),
+        Producto(
+            nombre="Diseño de Sistemas (System Design Interview)",
+            descripcion="Aprende a diseñar sistemas escalables como lo hacen en Google y Amazon.",
+            precio=44.99,
+            stock=45,
+            categoria_id=libros.id
+        ),
+        Producto(
+            nombre="Python Crash Course",
+            descripcion="La guía más completa para aprender Python desde cero.",
+            precio=34.99,
+            precio_descuento=27.99,
+            stock=70,
+            categoria_id=libros.id
         ),
     ]
 
-    db.add_all(tareas)
-    db.commit()
+    db.add_all(productos)
+    db.flush()
 
     # ==============================================================
-    # 4. CREAR COMENTARIOS
+    # 4. AÑADIR ITEMS AL CARRITO DE CLIENTE1
     # ==============================================================
-    comentarios = [
-        Comentario(
-            contenido="He implementado el sistema JWT con refresh tokens. "
-                      "Los tokens de acceso duran 30 min y los refresh 7 días.",
-            tarea_id=tareas[0].id,
-            autor_id=carlos.id
-        ),
-        Comentario(
-            contenido="Code review completado. Todo correcto. "
-                      "Marcando como completada. ✅",
-            tarea_id=tareas[0].id,
-            autor_id=laura.id
-        ),
-        Comentario(
-            contenido="Empezando con los gráficos de ventas usando Chart.js. "
-                      "¿Alguien ha usado Recharts? ¿Lo recomendáis?",
-            tarea_id=tareas[1].id,
-            autor_id=ana.id
-        ),
-        Comentario(
-            contenido="Yo usé Recharts en el proyecto anterior, funciona genial con React.",
-            tarea_id=tareas[1].id,
-            autor_id=carlos.id
-        ),
-        Comentario(
-            contenido="Los wireframes están en Figma: [link]. "
-                      "Incluye flujo de login, home, tareas y perfil.",
-            tarea_id=tareas[4].id,
-            autor_id=ana.id
-        ),
-    ]
+    # Simular que cliente1 tiene productos en su carrito
+    iphone = next(p for p in productos if "iPhone" in p.nombre)
+    airpods = next(p for p in productos if "AirPods" in p.nombre)
+    clean_code = next(p for p in productos if "Clean Code" in p.nombre)
 
-    db.add_all(comentarios)
+    db.add_all([
+        CarritoItem(carrito_id=carrito1.id, producto_id=iphone.id, cantidad=1),
+        CarritoItem(carrito_id=carrito1.id, producto_id=airpods.id, cantidad=1),
+        CarritoItem(carrito_id=carrito1.id, producto_id=clean_code.id, cantidad=2),
+    ])
+
+    # ==============================================================
+    # 5. CREAR UN PEDIDO COMPLETADO DE CLIENTE2
+    # ==============================================================
+    macbook = next(p for p in productos if "MacBook" in p.nombre)
+    python_book = next(p for p in productos if "Python" in p.nombre)
+
+    pedido = Pedido(
+        usuario_id=cliente2.id,
+        total=round(macbook.precio_final + python_book.precio_final * 2, 2),
+        estado=EstadoPedido.ENTREGADO,
+        direccion_envio="Calle Mayor 15, 3ºB, 28001 Madrid, España"
+    )
+    db.add(pedido)
+    db.flush()
+
+    db.add_all([
+        PedidoItem(
+            pedido_id=pedido.id,
+            producto_id=macbook.id,
+            cantidad=1,
+            precio_unitario=macbook.precio_final,
+            nombre_producto=macbook.nombre
+        ),
+        PedidoItem(
+            pedido_id=pedido.id,
+            producto_id=python_book.id,
+            cantidad=2,
+            precio_unitario=python_book.precio_final,
+            nombre_producto=python_book.nombre
+        ),
+    ])
+
     db.commit()
 
     print("✅ Base de datos inicializada correctamente!")
-    print("\n📋 Usuarios creados:")
-    print("   admin@taskflow.com    / Admin1234    (ADMIN)")
-    print("   laura@taskflow.com    / Manager1234  (MANAGER)")
-    print("   roberto@taskflow.com  / Manager1234  (MANAGER)")
-    print("   carlos@taskflow.com   / Dev1234      (DESARROLLADOR)")
-    print("   ana@taskflow.com      / Dev1234      (DESARROLLADOR)")
-    print("   miguel@taskflow.com   / Dev1234      (DESARROLLADOR)")
-    print(f"\n📁 Proyectos creados: 3")
-    print(f"✅ Tareas creadas: {len(tareas)}")
-    print(f"💬 Comentarios creados: {len(comentarios)}")
+    print("\n👤 Usuarios creados:")
+    print("   admin@shopflow.com    / Admin1234    (ADMIN)")
+    print("   cliente1@email.com   / Cliente1234  (CLIENTE) ← tiene carrito con 3 items")
+    print("   cliente2@email.com   / Cliente1234  (CLIENTE) ← tiene 1 pedido ENTREGADO")
+    print(f"\n📂 Categorías: 5  |  🛍️ Productos: {len(productos)}  |  📦 Pedidos: 1")

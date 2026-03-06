@@ -107,6 +107,6 @@ def login(db: Session, login_data: LoginRequest) -> TokenResponse:
         token_type="bearer",
         expires_in=settings.access_token_expire_minutes * 60,
         usuario_id=usuario.id,
-        nombre=usuario.nombre,
+        nombre=f"{usuario.nombre} {usuario.apellido}",
         rol=usuario.rol.value
     )

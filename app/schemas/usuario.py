@@ -1,21 +1,15 @@
 """
 SCHEMAS DE USUARIO
 ===================
-Tres tipos de schemas por entidad (patrón estándar):
+Tres schemas por entidad (patrón estándar en APIs REST):
 
-  1. UsuarioCreate → datos para CREAR un usuario (input)
-  2. UsuarioUpdate → datos para ACTUALIZAR (campos opcionales)
-  3. UsuarioResponse → datos que se DEVUELVEN al cliente (output)
+  1. UsuarioCreate   → datos para CREAR (input del cliente)
+  2. UsuarioUpdate   → datos para ACTUALIZAR (todos opcionales)
+  3. UsuarioResponse → datos que DEVOLVEMOS (nunca la contraseña)
 
-¿Por qué separar input de output?
-  - No devolvemos la contraseña nunca
-  - No aceptamos el rol desde el cliente en creación
-  - Control total sobre qué se expone en la API
-
-Equivale a los DTOs de Java:
-  UsuarioCreate   → CreateUsuarioDTO
-  UsuarioUpdate   → UpdateUsuarioDTO
-  UsuarioResponse → UsuarioResponseDTO
+Registro público vs creación de admin:
+  - Cualquiera puede registrarse → rol siempre CLIENTE
+  - Solo ADMIN puede crear otros ADMIN
 """
 
 from datetime import datetime
@@ -23,89 +17,66 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 from app.models.usuario import RolUsuario
 
 
-# ==============================================================
-# SCHEMA DE CREACIÓN (INPUT)
-# ==============================================================
-class UsuarioCreate(BaseModel):
+class UsuarioRegistro(BaseModel):
     """
-    Datos necesarios para registrar un nuevo usuario.
-    La contraseña se hasheará en el service antes de guardar.
+    Registro público: cualquier persona puede crear una cuenta.
+    El rol siempre será CLIENTE (el frontend no puede elegir ser ADMIN).
     """
-    email: EmailStr = Field(
-        ...,
-        example="juan@empresa.com",
-        description="Email único del usuario"
-    )
-    nombre: str = Field(
-        ...,
-        min_length=2,
-        max_length=100,
-        example="Juan García",
-        description="Nombre completo"
-    )
-    password: str = Field(
-        ...,
-        min_length=8,
-        example="MiPassword123",
-        description="Mínimo 8 caracteres"
-    )
-    rol: RolUsuario = Field(
-        default=RolUsuario.DESARROLLADOR,
-        description="Rol en el sistema"
-    )
+    email: EmailStr = Field(..., example="maria@email.com")
+    nombre: str = Field(..., min_length=2, max_length=100, example="María")
+    apellido: str = Field(..., min_length=2, max_length=100, example="González")
+    password: str = Field(..., min_length=8, example="MiPassword123")
 
-    # Validador personalizado (como @Pattern en Bean Validation de Java)
     @field_validator("password")
     @classmethod
-    def password_must_have_digit(cls, v: str) -> str:
-        """La contraseña debe contener al menos un número."""
-        if not any(char.isdigit() for char in v):
+    def password_strength(cls, v: str) -> str:
+        """Contraseña debe tener al menos un número."""
+        if not any(c.isdigit() for c in v):
             raise ValueError("La contraseña debe contener al menos un número")
         return v
 
 
-# ==============================================================
-# SCHEMA DE ACTUALIZACIÓN (INPUT)
-# ==============================================================
+class UsuarioCreate(BaseModel):
+    """Creación por admin (puede asignar cualquier rol)."""
+    email: EmailStr = Field(..., example="nuevo.admin@shopflow.com")
+    nombre: str = Field(..., min_length=2, max_length=100, example="Nuevo")
+    apellido: str = Field(..., min_length=2, max_length=100, example="Admin")
+    password: str = Field(..., min_length=8, example="Admin5678")
+    rol: RolUsuario = Field(default=RolUsuario.CLIENTE)
+
+    @field_validator("password")
+    @classmethod
+    def password_strength(cls, v: str) -> str:
+        if not any(c.isdigit() for c in v):
+            raise ValueError("La contraseña debe contener al menos un número")
+        return v
+
+
 class UsuarioUpdate(BaseModel):
-    """
-    Datos para actualizar un usuario.
-    Todos los campos son OPCIONALES (None = no cambiar).
-    """
+    """Actualización de perfil (todos los campos opcionales)."""
     nombre: str | None = Field(None, min_length=2, max_length=100)
+    apellido: str | None = Field(None, min_length=2, max_length=100)
     password: str | None = Field(None, min_length=8)
-    activo: bool | None = None
 
 
-# ==============================================================
-# SCHEMA DE RESPUESTA (OUTPUT)
-# ==============================================================
 class UsuarioResponse(BaseModel):
-    """
-    Datos que se devuelven al cliente.
-    NUNCA incluye la contraseña.
-    """
+    """Respuesta pública de usuario. NUNCA incluye la contraseña."""
     id: int
     email: str
     nombre: str
+    apellido: str
     rol: RolUsuario
     activo: bool
     created_at: datetime
 
-    # model_config reemplaza a 'class Config' de Pydantic v1
-    # from_attributes=True permite crear el schema desde un objeto SQLAlchemy
-    # Equivale a @JsonProperty en Jackson (Java)
     model_config = {"from_attributes": True}
 
 
 class UsuarioResumenResponse(BaseModel):
-    """
-    Versión reducida del usuario (para incluir en otras respuestas).
-    Por ejemplo: al mostrar quién creó una tarea.
-    """
+    """Versión mínima para incluir en otras respuestas (pedidos, etc.)."""
     id: int
     nombre: str
+    apellido: str
     email: str
-    rol: RolUsuario
 
     model_config = {"from_attributes": True}
