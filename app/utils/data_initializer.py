@@ -31,10 +31,10 @@ from app.services.auth_service import hash_password
 def inicializar_datos(db: Session) -> None:
     """Idempotente: si ya hay datos, no hace nada."""
     if db.query(Usuario).count() > 0:
-        print("✅ Base de datos ya contiene datos.")
+        print("[OK] Base de datos ya contiene datos.")
         return
 
-    print("🚀 Inicializando base de datos con datos de prueba...")
+    print("[INIT] Inicializando base de datos con datos de prueba...")
 
     # ==============================================================
     # 1. USUARIOS
@@ -275,9 +275,9 @@ def inicializar_datos(db: Session) -> None:
 
     db.commit()
 
-    print("✅ Base de datos inicializada correctamente!")
-    print("\n👤 Usuarios creados:")
+    print("[OK] Base de datos inicializada correctamente!")
+    print("\nUsuarios creados:")
     print("   admin@shopflow.com    / Admin1234    (ADMIN)")
-    print("   cliente1@email.com   / Cliente1234  (CLIENTE) ← tiene carrito con 3 items")
-    print("   cliente2@email.com   / Cliente1234  (CLIENTE) ← tiene 1 pedido ENTREGADO")
-    print(f"\n📂 Categorías: 5  |  🛍️ Productos: {len(productos)}  |  📦 Pedidos: 1")
+    print("   cliente1@email.com   / Cliente1234  (CLIENTE) - tiene carrito con 3 items")
+    print("   cliente2@email.com   / Cliente1234  (CLIENTE) - tiene 1 pedido ENTREGADO")
+    print(f"\nCategorias: 5  |  Productos: {len(productos)}  |  Pedidos: 1")

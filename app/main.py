@@ -40,7 +40,7 @@ async def lifespan(app: FastAPI):
 
     # Crear tablas
     Base.metadata.create_all(bind=engine)
-    print("✅ Tablas creadas en la base de datos")
+    print("[OK] Tablas creadas en la base de datos")
 
     # Datos de prueba
     db = SessionLocal()
@@ -49,12 +49,12 @@ async def lifespan(app: FastAPI):
     finally:
         db.close()
 
-    print(f"\n🚀 Servidor listo: http://localhost:8000")
-    print(f"📚 Swagger UI:    http://localhost:8000/docs\n")
+    print(f"\n[LISTO] Servidor: http://localhost:8000")
+    print(f"[DOCS]  Swagger UI: http://localhost:8000/docs\n")
 
     yield
 
-    print("\n👋 Cerrando ShopFlow API...")
+    print("\n[FIN] Cerrando ShopFlow API...")
 
 
 app = FastAPI(

@@ -18,13 +18,13 @@ SEGURIDAD DE CONTRASEÑAS:
   - Estándar de la industria
 
 COMPARACIÓN CON SPRING:
-  passlib.hash.bcrypt.hash()   → BCryptPasswordEncoder.encode()
-  passlib.hash.bcrypt.verify() → BCryptPasswordEncoder.matches()
+  bcrypt.hashpw()   → BCryptPasswordEncoder.encode()
+  bcrypt.checkpw()  → BCryptPasswordEncoder.matches()
 """
 
 from datetime import timezone, datetime
 from sqlalchemy.orm import Session
-from passlib.context import CryptContext
+import bcrypt
 from fastapi import HTTPException, status
 from app.models.usuario import Usuario
 from app.schemas.auth import LoginRequest, TokenResponse
@@ -33,23 +33,18 @@ from app.config.settings import get_settings
 
 settings = get_settings()
 
-# CryptContext configura el algoritmo de hashing
-# schemes=["bcrypt"] → usar bcrypt (recomendado)
-# deprecated="auto" → actualizar hashes viejos automáticamente
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 
 def hash_password(password: str) -> str:
     """
     Convierte una contraseña en texto plano a un hash bcrypt.
 
-    El resultado es diferente cada vez (por el salt), pero
-    pwd_context.verify() siempre puede verificarlo.
+    El resultado es diferente cada vez (por el salt automático), pero
+    bcrypt.checkpw() siempre puede verificarlo.
 
     Ejemplo:
         "Admin1234" → "$2b$12$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy"
     """
-    return pwd_context.hash(password)
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -57,7 +52,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     Compara contraseña en texto plano con el hash almacenado.
     Nunca "deshashea" la contraseña; vuelve a hashear y compara.
     """
-    return pwd_context.verify(plain_password, hashed_password)
+    return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
 
 
 def login(db: Session, login_data: LoginRequest) -> TokenResponse:
