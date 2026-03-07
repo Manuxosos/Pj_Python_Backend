@@ -11,7 +11,7 @@ echo.
 :: -----------------------------------------------
 :: PASO 1: Verificar que Python esta instalado
 :: -----------------------------------------------
-python --version >nul 2>&1
+python --version >nul 2>nul
 if %errorlevel% neq 0 (
     echo [ERROR] Python no esta instalado.
     echo.
@@ -21,7 +21,6 @@ if %errorlevel% neq 0 (
     pause
     exit /b 1
 )
-
 echo [OK] Python detectado.
 
 :: -----------------------------------------------
@@ -42,30 +41,25 @@ call venv\Scripts\activate.bat
 echo [OK] Entorno virtual activado.
 
 :: -----------------------------------------------
-:: PASO 4: Instalar dependencias si faltan
+:: PASO 4: Instalar/actualizar dependencias
+:: (pip es inteligente: si ya estan instaladas las salta)
 :: -----------------------------------------------
-python -c "import fastapi" >nul 2>&1
-if %errorlevel% neq 0 (
-    echo [..] Instalando dependencias (solo la primera vez, espera un momento)...
-    pip install -r requirements.txt --quiet
-    echo [OK] Dependencias instaladas.
-) else (
-    echo [OK] Dependencias ya instaladas.
-)
+echo [..] Verificando dependencias...
+pip install -r requirements.txt -q
+echo [OK] Dependencias listas.
 
 :: -----------------------------------------------
 :: PASO 5: Crear .env si no existe
 :: -----------------------------------------------
 if not exist ".env" (
     copy .env.example .env >nul
-    echo [OK] Archivo .env creado desde .env.example.
+    echo [OK] Archivo .env creado.
 ) else (
     echo [OK] Archivo .env encontrado.
 )
 
 :: -----------------------------------------------
-:: PASO 6: Abrir el navegador despues de 4 segundos
-:: (tiempo para que el servidor arranque)
+:: PASO 6: Abrir navegador despues de 5 segundos
 :: -----------------------------------------------
 echo.
 echo  Arrancando servidor...
@@ -75,9 +69,9 @@ echo  Para DETENER el servidor presiona: Ctrl + C
 echo  ==========================================
 echo.
 
-start /B cmd /c "timeout /t 5 >nul && start http://localhost:8000/docs"
+start "" cmd /c "timeout /t 5 >nul && start http://localhost:8000/docs"
 
 :: -----------------------------------------------
-:: PASO 7: Arrancar el servidor (queda en primer plano)
+:: PASO 7: Arrancar el servidor
 :: -----------------------------------------------
 uvicorn app.main:app --reload
